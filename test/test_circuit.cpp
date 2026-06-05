@@ -612,7 +612,7 @@ static int test_compose(void) {
     return Ok;
 }
 
-static int test_to_qasm3_multi_regs(void) {
+static int test_to_qasm3(void) {
     auto qreg1 = QuantumRegister(2, std::string("q1"));
     auto qreg2 = QuantumRegister(1, std::string("q2"));
     auto creg1 = ClassicalRegister(2, std::string("c1"));
@@ -641,6 +641,113 @@ static int test_to_qasm3_multi_regs(void) {
     return Ok;
 }
 
+static int test_to_qasm3_multi_regs(void) {
+  auto qreg1 = QuantumRegister(2, std::string("q1"));
+  auto qreg2 = QuantumRegister(1, std::string("q2"));
+  auto creg1 = ClassicalRegister(2, std::string("c1"));
+  auto creg2 = ClassicalRegister(1, std::string("c2"));
+  QuantumCircuit circ(std::vector<QuantumRegister>({qreg1, qreg2}),
+                      std::vector<ClassicalRegister>({creg1, creg2}));
+
+  circ.measure(qreg2, creg2);
+  circ.measure(qreg1, creg1);
+
+  const auto actual = circ.to_qasm3();
+  const std::string expected = "OPENQASM 3.0;\n"
+                               "include \"stdgates.inc\";\n"
+                               "qubit[3] q;\n"
+                               "bit[2] c1;\n"
+                               "bit[1] c2;\n"
+                               "c2[0] = measure q[2];\n"
+                               "c1[0] = measure q[0];\n"
+                               "c1[1] = measure q[1];\n";
+  if (actual != expected) {
+    std::cerr << "  to_qasm3_multi_regs test : \n    expected:\n"
+              << expected << "\n    actual:\n"
+              << actual << std::endl;
+    return EqualityError;
+  }
+
+  return Ok;
+}
+
+static int test_to_qasm3_single_param(void) {
+  auto circ = QuantumCircuit(1, 0);
+  Parameter theta("theta");
+  circ.rx(theta, 0);
+
+  const auto actual = circ.to_qasm3();
+  const std::string expected = "OPENQASM 3.0;\n"
+                               "include \"stdgates.inc\";\n"
+                               "input float[64] theta;\n"
+                               "qubit[1] q;\n"
+                               "rx(theta) q[0];\n";
+  if (actual != expected) {
+    std::cerr << "  to_qasm3_single_param test : \n    expected:\n"
+              << expected << "\n    actual:\n"
+              << actual << std::endl;
+    return EqualityError;
+  }
+  return Ok;
+}
+
+static int test_to_qasm3_multiple_params(void) {
+  auto circ = QuantumCircuit(2, 0);
+  Parameter alpha("alpha");
+  Parameter beta("beta");
+  circ.rx(alpha, 0);
+  circ.ry(beta, 1);
+
+  const auto actual = circ.to_qasm3();
+  const std::string expected = "OPENQASM 3.0;\n"
+                               "include \"stdgates.inc\";\n"
+                               "input float[64] alpha;\n"
+                               "input float[64] beta;\n"
+                               "qubit[2] q;\n"
+                               "rx(alpha) q[0];\n"
+                               "ry(beta) q[1];\n";
+  if (actual != expected) {
+    std::cerr << "  to_qasm3_multiple_params test : \n    expected:\n"
+              << expected << "\n    actual:\n"
+              << actual << std::endl;
+    return EqualityError;
+  }
+  return Ok;
+}
+
+static int test_to_qasm3_expression_param(void) {
+  auto circ = QuantumCircuit(1, 0);
+  Parameter t("t");
+  Parameter expr = t + Parameter(0.5);
+  circ.rz(expr, 0);
+
+  const auto actual = circ.to_qasm3();
+  // The expression "0.5 + t" (or "t + 0.5") should cause only "t" to be
+  // declared as input, not the numeric literal.
+  if (actual.find("input float[64] t;") == std::string::npos) {
+    std::cerr
+        << "  to_qasm3_expression_param test : missing 'input float[64] t;'\n"
+        << "    actual:\n"
+        << actual << std::endl;
+    return EqualityError;
+  }
+
+  size_t count = 0;
+  size_t pos = 0;
+  while ((pos = actual.find("input float[64]", pos)) != std::string::npos) {
+    count++;
+    pos += 15;
+  }
+  if (count != 1) {
+    std::cerr << "  to_qasm3_expression_param test : expected 1 input "
+                 "declaration, got "
+              << count << "\n    actual:\n"
+              << actual << std::endl;
+    return EqualityError;
+  }
+  return Ok;
+}
+
 #if defined(_WIN32)
 int test_circuit(int argc, char** const argv) {
 #else
@@ -651,7 +758,10 @@ int test_circuit(int argc, char** argv) {
     num_failed += RUN_TEST(test_measure);
     num_failed += RUN_TEST(test_append);
     num_failed += RUN_TEST(test_compose);
-    num_failed += RUN_TEST(test_to_qasm3_multi_regs);
+    num_failed += RUN_TEST(test_to_qasm3);
+    num_failed += RUN_TEST(test_to_qasm3_single_param);
+    num_failed += RUN_TEST(test_to_qasm3_multiple_params);
+    num_failed += RUN_TEST(test_to_qasm3_expression_param);
 
     std::cerr << "=== Number of failed subtests: " << num_failed << std::endl;
     return num_failed;
