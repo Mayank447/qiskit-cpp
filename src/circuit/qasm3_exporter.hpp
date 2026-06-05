@@ -28,7 +28,7 @@
 
 namespace Qiskit {
 namespace circuit {
-std::string to_qasm3(circuit::QuantumCircuit &circ)
+inline std::string to_qasm3(circuit::QuantumCircuit &circ)
 {
     auto rust_circ = circ.get_rust_circuit(true);
 

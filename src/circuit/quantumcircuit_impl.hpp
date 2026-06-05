@@ -57,7 +57,7 @@ inline void QuantumCircuit::add_pending_control_flow_op(void)
 }
 
 
-std::string QuantumCircuit::to_qasm3(void)
+inline std::string QuantumCircuit::to_qasm3(void)
 {
     return to_qasm3(*this);
 }
