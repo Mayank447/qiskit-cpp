@@ -2,9 +2,18 @@
 #define __qiskitcpp_circuit_qasm3_exporter_hpp__
 
 #include "circuit/quantumcircuit_def.hpp"
-#include <iostream>
+#include <algorithm>
+#include <cassert>
+#include <cstring>
+#include <iomanip>
+#include <iterator>
 #include <set>
+#include <sstream>
+#include <string>
 
+
+namespace Qiskit {
+namespace circuit {
 std::string to_qasm3(circuit::QuantumCircuit &circ)
 {
     auto rust_circ = circ.get_rust_circuit(true);
@@ -41,11 +50,10 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
                 size_t pos = 0;
                 while (pos < s.size())
                 {
-                    char c = s[pos];
+                    const char c = s[pos];
                     if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
                     {
-                        size_t start = pos;
-                        pos++;
+                        const size_t start = pos++;
                         while (pos < s.size() &&
                                ((s[pos] >= 'a' && s[pos] <= 'z') ||
                                 (s[pos] >= 'A' && s[pos] <= 'Z') ||
@@ -53,14 +61,14 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
                         {
                             pos++;
                         }
-                        std::string token = s.substr(start, pos - start);
+                        const std::string token = s.substr(start, pos - start);
                         if (reserved.find(token) == reserved.end())
                         {
                             symbol_names.insert(token);
                         }
-                        else
-                            pos++;
+                        continue;
                     }
+                    pos++;
                 }
             }
             qk_circuit_instruction_clear(&inst);
@@ -349,12 +357,12 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
                 break;
             case QkGate_CU1:
                 qasm3 << "gate cu1(p0) _gate_q_0, _gate_q_1 {" << std::endl;
-                qasm3 << "  cp(p0) _gate_q_0 _gate_q_1;" << std::endl;
+                qasm3 << "  cp(p0) _gate_q_0, _gate_q_1;" << std::endl;
                 qasm3 << "}" << std::endl;
                 break;
             case QkGate_CU3:
                 qasm3 << "gate cu3(p0, p1, p2) _gate_q_0, _gate_q_1 {" << std::endl;
-                qasm3 << "  cu(p0, p1, p2, 0) _gate_q_0 _gate_q_1;" << std::endl;
+                qasm3 << "  cu(p0, p1, p2, 0) _gate_q_0, _gate_q_1;" << std::endl;
                 qasm3 << "}" << std::endl;
                 break;
             default:
@@ -374,20 +382,22 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
     const std::string qreg_name = "q";
     qasm3 << "qubit[" << circ.num_qubits() << "] " << qreg_name << ";"
           << std::endl;
-    for (const auto &creg : circ.cregs)
+
+    const auto &cregs = circ.cregs();
+    for (const auto &creg : cregs)
     {
         qasm3 << "bit[" << creg.size() << "] " << creg.name() << ";" << std::endl;
     }
 
     auto recover_reg_data =
-        [this](uint_t index) -> std::pair<std::string, uint_t>
+        [&cregs](uint_t index) -> std::pair<std::string, uint_t>
     {
-        auto it = std::upper_bound(circ.cregs.begin(), circ.cregs.end(), index,
+        auto it = std::upper_bound(cregs.begin(), cregs.end(), index,
                                    [](uint_t v, const ClassicalRegister &reg)
                                    {
                                        return v < reg.base_index();
                                    });
-        assert(it != circ.cregs.begin());
+        assert(it != cregs.begin());
         it = std::prev(it);
         return std::make_pair(it->name(), index - it->base_index());
     };
@@ -398,9 +408,9 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
         qk_circuit_get_instruction(rust_circ.get(), i, op);
         if (op->num_clbits > 0)
         {
-            if (op->circ.num_qubits == op->num_clbits)
+            if (op->num_qubits == op->num_clbits)
             {
-                for (uint_t j = 0; j < op->circ.num_qubits; j++)
+                for (uint_t j = 0; j < op->num_qubits; j++)
                 {
                     const auto creg_data = recover_reg_data(op->clbits[j]);
                     qasm3 << creg_data.first << "[" << creg_data.second
@@ -432,13 +442,13 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
                 }
                 qasm3 << ")";
             }
-            if (op->circ.num_qubits > 0)
+            if (op->num_qubits > 0)
             {
                 qasm3 << " ";
-                for (uint_t j = 0; j < op->circ.num_qubits; j++)
+                for (uint_t j = 0; j < op->num_qubits; j++)
                 {
                     qasm3 << qreg_name << "[" << op->qubits[j] << "]";
-                    if (j != op->circ.num_qubits - 1)
+                    if (j != op->num_qubits - 1)
                         qasm3 << ", ";
                 }
             }
@@ -449,4 +459,7 @@ std::string to_qasm3(circuit::QuantumCircuit &circ)
 
     return qasm3.str();
 }
-#endif
+}
+}
+
+#endif  // __qiskitcpp_circuit_qasm3_exporter_hpp__
