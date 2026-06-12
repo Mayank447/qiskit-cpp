@@ -25,6 +25,7 @@
 #include <iomanip>
 #include <cstring>
 #include <cassert>
+#include <set>
 
 #include "utils/types.hpp"
 #include "circuit/parameter.hpp"
