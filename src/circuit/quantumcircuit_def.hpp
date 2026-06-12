@@ -322,6 +322,20 @@ public:
 		return measure_map_;
 	}
 
+	/// @brief get qubits to be measured
+	/// @return a set of qubits
+	const std::vector<std::pair<uint_t, uint_t>> &get_measure_map(void) const
+	{
+		return measure_map_;
+	}
+
+	/// @brief Return whether this circuit contains measurement operations.
+	/// @return true if there is at least one measurement operation.
+	bool has_measurements(void) const
+	{
+		return !measure_map_.empty();
+	}
+
 	/// @brief set global phase
 	/// @param phase global phase value
 	void global_phase(const double phase)
