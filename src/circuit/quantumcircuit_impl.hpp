@@ -28,7 +28,7 @@
 #include <cassert>
 
 #include "controlflow/__init__.hpp"
-
+#include "circuit/qasm3_exporter.hpp"
 namespace Qiskit {
 namespace circuit {
 
@@ -57,6 +57,10 @@ inline void QuantumCircuit::add_pending_control_flow_op(void)
 }
 
 
+inline std::string QuantumCircuit::to_qasm3(void)
+{
+    return to_qasm3(*this);
+}
 }
 }
 
