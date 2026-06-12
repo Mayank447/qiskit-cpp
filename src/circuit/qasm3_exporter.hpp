@@ -39,59 +39,11 @@ inline std::string to_qasm3(circuit::QuantumCircuit &circ)
     auto name_map = get_standard_gate_name_mapping();
 
     // Input parameter declarations
-    uint_t num_params = circ.num_parameters();
-    if (num_params > 0)
-    {
-        std::set<std::string> symbol_names;
-        uint_t param_insts = qk_circuit_num_instructions(rust_circ.get());
-
-        for (uint_t i = 0; i < param_insts; i++)
-        {
-            QkCircuitInstruction inst;
-            qk_circuit_get_instruction(rust_circ.get(), i, &inst);
-
-            for (uint_t j = 0; j < inst.num_params; j++)
-            {
-                char *param_str = qk_param_str(inst.params[j]);
-                std::string s(param_str);
-                qk_str_free(param_str);
-
-                // Extract all identifier tokens from the param string.
-                static const std::set<std::string> reserved = {
-                    "sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
-                    "abs", "sign", "conjugate", "pi", "sqrt", "ceil", "floor"};
-
-                size_t pos = 0;
-                while (pos < s.size())
-                {
-                    const char c = s[pos];
-                    if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_')
-                    {
-                        const size_t start = pos++;
-                        while (pos < s.size() &&
-                               ((s[pos] >= 'a' && s[pos] <= 'z') ||
-                                (s[pos] >= 'A' && s[pos] <= 'Z') ||
-                                (s[pos] >= '0' && s[pos] <= '9') || s[pos] == '_'))
-                        {
-                            pos++;
-                        }
-                        const std::string token = s.substr(start, pos - start);
-                        if (reserved.find(token) == reserved.end())
-                        {
-                            symbol_names.insert(token);
-                        }
-                        continue;
-                    }
-                    pos++;
-                }
-            }
-            qk_circuit_instruction_clear(&inst);
-        }
-
-        for (const auto &sym : symbol_names)
-        {
-            qasm3 << "input float[64] " << sym << ";" << std::endl;
-        }
+    auto param_syms = circ.parameter_symbols();
+    if (!param_syms.empty()) {
+      for (const auto &sym : param_syms) {
+        qasm3 << "input float[64] " << sym << ";" << std::endl;
+      }
     }
 
     // add header for non-standard gates

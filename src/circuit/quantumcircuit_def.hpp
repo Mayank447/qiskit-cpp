@@ -1240,6 +1240,59 @@ public:
 		return qk_circuit_num_param_symbols(rust_circuit_.get());
 	}
 
+	/// @brief Return a list of parameter symbol names used in the circuit.
+	/// @details It will be replaced by a C-API call when the API becomes available.
+	///			 This is a stub function that collects unique parameter symbol names
+	///          by iterating through circuit instructions and extracting identifiers
+	///          from parameter string representations.
+	/// @note Duplicate symbol names are not accepted in Qiskit C++ because we do not
+	///       have a C-API to identify Parameters by UUID. Each symbol name must be unique.
+	/// @return A sorted list of unique parameter symbol names.
+	std::vector<std::string> parameter_symbols(void) const
+	{
+		std::set<std::string> symbol_names;
+
+		// Reserved identifiers that should not be treated as parameter symbols
+		static const std::set<std::string> reserved = {
+			"sin", "cos", "tan", "asin", "acos", "atan", "exp", "log",
+			"abs", "sign", "conjugate", "pi", "sqrt", "ceil", "floor", "conj"};
+
+		uint_t nops = qk_circuit_num_instructions(rust_circuit_.get());
+		for (uint_t i = 0; i < nops; i++) {
+			QkCircuitInstruction inst;
+			qk_circuit_get_instruction(rust_circuit_.get(), i, &inst);
+
+			for (uint_t j = 0; j < inst.num_params; j++) {
+				char *param_str = qk_param_str(inst.params[j]);
+				std::string s(param_str);
+				qk_str_free(param_str);
+
+				size_t pos = 0;
+				while (pos < s.size()) {
+					const char c = s[pos];
+					if ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '_') {
+						const size_t start = pos++;
+						while (pos < s.size() &&
+							   ((s[pos] >= 'a' && s[pos] <= 'z') ||
+								(s[pos] >= 'A' && s[pos] <= 'Z') ||
+								(s[pos] >= '0' && s[pos] <= '9') || s[pos] == '_')) {
+							pos++;
+						}
+						const std::string token = s.substr(start, pos - start);
+						if (reserved.find(token) == reserved.end()) {
+							symbol_names.insert(token);
+						}
+						continue;
+					}
+					pos++;
+				}
+			}
+			qk_circuit_instruction_clear(&inst);
+		}
+
+		return std::vector<std::string>(symbol_names.begin(), symbol_names.end());
+	}
+
 	/// @brief Assign parameters to new parameters or values.
 	/// @param keys a list of keys
 	/// @param values a list of values
